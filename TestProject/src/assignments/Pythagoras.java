@@ -4,9 +4,9 @@ import Interfaces.IPythagoras;
 
 public class Pythagoras implements IPythagoras {
 
-	public float calcHypotenuse(float a, float b) {
-		// TODO Auto-generated method stub
-		return 0;
+	public double calcHypotenuse(double a, double b) {
+		double c = Math.sqrt(Math.pow(a, 2)+Math.pow(b,2));
+		return c;
 	}
 
 }
