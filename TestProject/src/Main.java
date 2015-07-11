@@ -1,50 +1,35 @@
-import java.util.Scanner;
-
-import assignments.Pythagoras;
+import java.io.File;
+import java.net.URISyntaxException;
+import java.security.CodeSource;
 
 
 public class Main {
 
-	public static void main(String[] args) {
-		Pythagoras pyth = new Pythagoras();
-		Scanner scan = new Scanner(System.in);
-		boolean success = false;
-		double a = 0;
-		double b = 0;
-		while(true){
-		do{
-			System.out.println("a:");
-			String aValue = scan.nextLine();
-			
-			try{
-				a = Double.valueOf(aValue);
-				success = true;
-			}catch(NumberFormatException nfe){
-				success = false;
+		public static void main(String[] args)  {
+			CodeSource codeSource = Main.class.getProtectionDomain().getCodeSource();
+			String jarDir = null;
+			File jarFile = null;
+			String name = null;
+			// finds location of the jar file. to make it possible to have the file anywhere you want to
+			try {
+				jarFile = new File(codeSource.getLocation().toURI().getPath());
+				name = new File(codeSource.getLocation().getPath()).getName(); 
+				jarDir = jarFile.getParentFile().getPath();
+				jarDir = jarDir.replace("\\", "/");
+			} catch (URISyntaxException e) {
+				System.err.println("could not find jar file location!");
+				e.printStackTrace();
 			}
-		}while(!success);
-		
-		do{
-		System.out.println("b:");
-		String bValue = scan.nextLine();
-		try{
-			b = Double.valueOf(bValue);
-			success = true;
-		}catch(NumberFormatException nfe){
-			success = false;
+			
+			// starts command prompt and runs program
+			try{
+				Runtime.getRuntime().exec("cmd.exe /c cd \""+ jarDir +"\" "
+						+ "& start cmd.exe /k \"java -cp "+name+" run.runProgram\"");
+														//package^	class^	//TODO set the package and main class above
+			} catch(Exception e){
+				System.err.println("failed to load command prompt");
+			}
 		}
-		}while(!success);
-		
-		double c = pyth.calcHypotenuse(a, b);
-		System.out.println("c=" + c);
-		System.out.println("quit? (y/n)");
-		String quitValue = scan.nextLine();
-		if(quitValue.equalsIgnoreCase("y")){
-			break;
-		}
-		}
-		
-		scan.close();
-	}
+	
 
 }
