@@ -19,6 +19,7 @@ public class PythagorasTest {
 	@Test
 	public void testCalcHypotenuse(){
 		double result = this.pythagoras.calcHypotenuse(3, 4);
-		Assert.assertSame("a=3, b=4", 5, result);
+		Assert.assertEquals("a=3, b=4", 5, result, 0);
+	
 	}
 }
