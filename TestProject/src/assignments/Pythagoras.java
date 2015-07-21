@@ -9,4 +9,11 @@ public class Pythagoras implements IPythagoras {
 		return c;
 	}
 
+	@Override
+	public double calcBaseline(double b, double c) {
+		double a = Math.sqrt(Math.pow(c, 2)-Math.pow(b, 2));
+		return a;
+	}
+	
+	
 }

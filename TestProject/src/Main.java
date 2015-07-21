@@ -24,7 +24,7 @@ public class Main {
 			// starts command prompt and runs program
 			try{
 				Runtime.getRuntime().exec("cmd.exe /c cd \""+ jarDir +"\" "
-						+ "& start cmd.exe /k \"java -cp "+name+" run.runProgram\"");
+						+ "& start cmd.exe /k \"java -cp "+name+" run.RunProgram\"");
 														//package^	class^	//TODO set the package and main class above
 			} catch(Exception e){
 				System.err.println("failed to load command prompt");
