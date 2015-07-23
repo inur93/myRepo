@@ -1,5 +1,6 @@
 package controllers;
 
+import remoteController.RemoteController;
 import globals.Const;
 import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;

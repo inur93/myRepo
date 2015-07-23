@@ -10,18 +10,16 @@ public class AutoTransmission implements Runnable{
 
 	private EV3ColorSensor colorSensor;
 	private MotorController motorController;
+	private volatile boolean isRunning = true;
 
 	public AutoTransmission(MotorController motorController){
 		this.motorController = motorController;
-//		this.colorSensor = new EV3ColorSensor(LocalEV3.get().getPort(Const.colorSensorPort));
+		this.colorSensor = new EV3ColorSensor(LocalEV3.get().getPort(Const.colorSensorPort));
 	}
 	@Override
 	public void run() {
-		while(true){
-			System.out.println("current gear: " + this.motorController.getCurrentGear());
-			if(Button.readButtons() == Button.ID_DOWN){
-				break;
-			}
+		while(isRunning){
+			
 			while(this.motorController.getRPM() < Const.MAX_SPEED){}
 			if(this.motorController.getCurrentGear() < 3){
 				this.motorController.shiftUp(true);
@@ -31,16 +29,22 @@ public class AutoTransmission implements Runnable{
 	}
 
 	private int findGear(){
-		this.colorSensor.getColorID();
-		return 0;
+		return this.colorSensor.getColorID();
 	}
 
 	private void sleep(long millisec){
 		try {
 			Thread.sleep(millisec);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
+	}
+	
+	public void enable(){
+		isRunning = true;
+		run();
+	}
+	
+	public void disable(){
+		isRunning = false;
 	}
 }
