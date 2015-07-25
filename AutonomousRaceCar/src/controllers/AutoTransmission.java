@@ -1,7 +1,6 @@
 package controllers;
 
 import globals.Const;
-import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.sensor.EV3ColorSensor;
 
@@ -9,27 +8,110 @@ public class AutoTransmission implements Runnable{
 
 
 	private EV3ColorSensor colorSensor;
-	private MotorController motorController;
+	private volatile MotorController motorController;
+
+	private volatile int currentGear;
+	private volatile int prevGear; // for test
 	private volatile boolean isRunning = true;
 
 	public AutoTransmission(MotorController motorController){
 		this.motorController = motorController;
-		this.colorSensor = new EV3ColorSensor(LocalEV3.get().getPort(Const.colorSensorPort));
+		if(!Const.TEST_MODE){
+			this.colorSensor = new EV3ColorSensor(LocalEV3.get().getPort(Const.colorSensorPort));
+		}
 	}
 	@Override
-	public void run() {
+	public synchronized void run() {
+		initTransmission();
+		int speed = 0;
 		while(isRunning){
-			
-			while(this.motorController.getRPM() < Const.MAX_SPEED){}
-			if(this.motorController.getCurrentGear() < 3){
-				this.motorController.shiftUp(true);
+			prevGear = currentGear;
+			do{
+				speed = this.motorController.getRPM();
+				if(Const.TEST_MODE) {
+					System.out.println("transmission sleeping.." + isRunning);
+				}
+				sleep(100);
 			}
-			
+			while(isRunning && speed < Const.MAX_SPEED && speed > Const.MIN_SPEED);
+
+			if(!isRunning) break;
+
+			if(speed >= Const.MAX_SPEED && currentGear < 3){
+				this.currentGear++;
+				switch(currentGear){
+				case 1:
+					this.motorController.shiftUp(Const.FIRST_GEAR, false);
+					break;
+				case 2:
+					this.motorController.shiftUp(Const.SECOND_GEAR, false);
+					break;
+				case 3:
+					this.motorController.shiftUp(Const.THIRD_GEAR, false);
+					break;
+				default:
+					System.out.println("gear not recognized: " + currentGear);
+					break;
+				}
+
+			}else if(speed <= Const.MIN_SPEED && currentGear > 1){
+				this.currentGear--;
+				switch(currentGear){
+				case 1:
+					this.motorController.shiftDown(Const.FIRST_GEAR, false);
+					break;
+				case 2:
+					this.motorController.shiftDown(Const.SECOND_GEAR, false);
+					break;
+				case 3:
+					this.motorController.shiftDown(Const.THIRD_GEAR, false);
+					break;
+				default:
+					System.out.println("gear not recognized: " + currentGear);
+					break;
+				}
+			}
+			if(this.currentGear != this.prevGear){
+				System.out.println("current gear: " + currentGear);
+			}
+
+		}
+		System.out.println("auto transmission stopped");
+	}
+
+	private void initTransmission() {
+		if(Const.TEST_MODE){
+			this.currentGear = 2;
+			return;
+		}
+		int gear_id = this.colorSensor.getColorID();
+		switch(gear_id){
+		case Const.FIRST_GEAR_COLOR_ID:
+			Const.FIRST_GEAR = Const.GEAR_ANGLE_OFFSET_0;
+			Const.SECOND_GEAR = Const.GEAR_ANGLE_OFFSET_1;
+			Const.THIRD_GEAR = Const.GEAR_ANGLE_OFFSET_2;
+			this.currentGear = 1;
+			break;
+		case Const.SECOND_GEAR_COLOR_ID:
+			Const.FIRST_GEAR = Const.GEAR_ANGLE_OFFSET_N1;
+			Const.SECOND_GEAR = Const.GEAR_ANGLE_OFFSET_0;
+			Const.THIRD_GEAR = Const.GEAR_ANGLE_OFFSET_1;
+			this.currentGear = 2;
+			break;
+		case Const.THIRD_GEAR_COLOR_ID:
+			Const.FIRST_GEAR = Const.GEAR_ANGLE_OFFSET_N2;
+			Const.SECOND_GEAR = Const.GEAR_ANGLE_OFFSET_N1;
+			Const.THIRD_GEAR = Const.GEAR_ANGLE_OFFSET_0;
+			this.currentGear = 3;
+			break;
+		default:
+			System.out.println("unknown color id");
+			break;
 		}
 	}
 
-	private int findGear(){
-		return this.colorSensor.getColorID();
+	public int getCurrentGear(){
+		return this.currentGear;
 	}
 
 	private void sleep(long millisec){
@@ -38,13 +120,18 @@ public class AutoTransmission implements Runnable{
 		} catch (InterruptedException e) {
 		}
 	}
-	
+
 	public void enable(){
-		isRunning = true;
-		run();
+		if(this.isRunning = true){
+			return;
+		}
+		System.out.println("enabling...");
+		this.isRunning = true;
+		new Thread(this).start();
 	}
-	
+
 	public void disable(){
-		isRunning = false;
+		System.out.println("disabling...");
+		this.isRunning = false;
 	}
 }

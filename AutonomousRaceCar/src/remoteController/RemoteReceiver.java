@@ -4,41 +4,50 @@ import globals.Const;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.port.Port;
 import lejos.hardware.sensor.EV3IRSensor;
+import controllers.MainController;
 import controllers.MotorController;
 
 public class RemoteReceiver implements Runnable{
 
-	//	public enum RemoteEvent{FORWARD, REVERSE, TURN_LEFT, TURN_RIGHT}
-	public enum DrivingMotor{FORWARD, REVERSE, STOP}
+	private enum DrivingStates{FORWARD, REVERSE, BRAKE, FLOAT}
 	public enum SteeringMotor{LEFT, RIGHT, STRAIGH}
 	public enum GearMotor{SHIFT_UP, SHIFT_DOWN, MANUAL, AUTO}
 
-	private volatile DrivingMotor drivingStateCurrent = DrivingMotor.STOP;
+	private volatile DrivingStates drivingStateCurrent = DrivingStates.BRAKE;
 	private volatile SteeringMotor steeringStateCurrent = SteeringMotor.STRAIGH;
 	private volatile GearMotor gearStateCurrent = GearMotor.AUTO;
 
-	private volatile DrivingMotor drivingStatePrev = DrivingMotor.STOP;
 	private volatile SteeringMotor steeringStatePrev = SteeringMotor.STRAIGH;
-	private volatile GearMotor gearStatePrev = GearMotor.AUTO;
 
-	private MotorController motorController;
+	private volatile MotorController motorController;
+	private volatile MainController mainController;
 	private EV3IRSensor receiver;
-	private volatile boolean stop = false;
+	private volatile boolean terminate = false;
 
-	public RemoteReceiver(MotorController motorController) {
+	public RemoteReceiver(MotorController motorController, MainController mainController) {
 		this.motorController = motorController;
+		this.mainController = mainController;
+		if(!Const.TEST_MODE){
 		Port port = LocalEV3.get().getPort(Const.irSensorPort);
 		this.receiver = new EV3IRSensor(port);
+		}
 	}
 
 	@Override
 	public void run() {
-		this.stop = false;
+		
+		
+		this.terminate = false;
 		int channel = -1; 
 		int command = 0;
-		while(!stop){
+		System.out.println("remote starting...");
+		while(!terminate){
 			byte[] cmds = new byte[4];
-			this.receiver.getRemoteCommands(cmds, 0, cmds.length);
+			if(Const.TEST_MODE){
+				cmds[0] = (byte) (Math.random()*10);
+			}else{
+				this.receiver.getRemoteCommands(cmds, 0, cmds.length);
+			}
 			// 			1	LU 						FO
 			//			2	LD						RE
 			//			3	RU						LE
@@ -72,11 +81,11 @@ public class RemoteReceiver implements Runnable{
 			sleep(50);
 			resetStates();
 		}
-	};
+	}
 
 	private void resetStates() {
 
-		drivingStateCurrent = DrivingMotor.STOP;
+		drivingStateCurrent = DrivingStates.FLOAT;
 		steeringStateCurrent = SteeringMotor.STRAIGH;
 	}
 
@@ -92,7 +101,7 @@ public class RemoteReceiver implements Runnable{
 			gearStateCurrent = GearMotor.SHIFT_UP;
 			break;
 		case 4:
-			gearStateCurrent = gearStateCurrent.SHIFT_DOWN;
+			gearStateCurrent = GearMotor.SHIFT_DOWN;
 			break;
 		case 9:
 			gearStateCurrent = gearStateCurrent.equals(GearMotor.AUTO) ? GearMotor.MANUAL : GearMotor.AUTO;
@@ -105,24 +114,18 @@ public class RemoteReceiver implements Runnable{
 	}
 
 	private void execCommands() {
-		//		motorController.execCommands(drivingStateCurrent, steeringStateCurrent, gearStateCurrent);
-
 		execDrivingCommand();
 		execSteeringCommand();
 		execGearCommand();
 
-		drivingStatePrev = drivingStateCurrent;
 		steeringStatePrev = steeringStateCurrent;
-		gearStatePrev = gearStateCurrent;
 	}
 
 	private void execGearCommand() {
 		if(gearStateCurrent.equals(GearMotor.AUTO)){
-			this.motorController.setAutoGear(true);
+			this.mainController.setAutoGear(true);
 		}else if(gearStateCurrent.equals(GearMotor.MANUAL)){
-			this.motorController.setAutoGear(false);
-		}else{
-
+			this.mainController.setAutoGear(false);
 		}
 	}
 
@@ -134,23 +137,24 @@ public class RemoteReceiver implements Runnable{
 	}
 
 	private void execDrivingCommand(){
-		if(drivingStateCurrent.equals(DrivingMotor.STOP)){
+		if(drivingStateCurrent.equals(DrivingStates.FLOAT)){
 			motorController.decreaseSpeed();
-		}else{
-			if(drivingStatePrev.equals(DrivingMotor.STOP)){
+		}else if(drivingStateCurrent.equals(DrivingStates.BRAKE)){
+			motorController.stop();
+		}
+		else if(drivingStateCurrent.equals(DrivingStates.FORWARD)){
+//			System.out.println("forward: " + motorController.isGoingForward());
+//			System.out.println("backward: " + motorController.isGoingBackward());
+			if(motorController.isGoingForward()){
 				motorController.increaseSpeed();
-			}else if(drivingStateCurrent.equals(DrivingMotor.FORWARD)){
-				if(motorController.isGoingForward()){
-					motorController.increaseSpeed();
-				}else{
-					motorController.forward();
-				}
-			}else if(drivingStateCurrent.equals(DrivingMotor.REVERSE)){
-				if(!motorController.isGoingForward()){
-					motorController.increaseSpeed();
-				}else{
-					motorController.backward();
-				}
+			}else{
+				motorController.forward();
+			}
+		}else if(drivingStateCurrent.equals(DrivingStates.REVERSE)){
+			if(motorController.isGoingBackward()){
+				motorController.increaseSpeed();
+			}else{
+				motorController.backward();
 			}
 		}
 	}
@@ -158,10 +162,10 @@ public class RemoteReceiver implements Runnable{
 	private void setStandardStates(int command){
 		switch(command){
 		case 1: //forward
-			drivingStateCurrent = DrivingMotor.FORWARD;
+			drivingStateCurrent = DrivingStates.FORWARD;
 			break;
 		case 2: // reverse
-			drivingStateCurrent = DrivingMotor.REVERSE;
+			drivingStateCurrent = DrivingStates.REVERSE;
 			break;
 		case 3: // turn left
 			steeringStateCurrent = SteeringMotor.LEFT;
@@ -170,29 +174,31 @@ public class RemoteReceiver implements Runnable{
 			steeringStateCurrent = SteeringMotor.RIGHT;
 			break;
 		case 5: // forward and turn left
-			drivingStateCurrent = DrivingMotor.FORWARD;
+			drivingStateCurrent = DrivingStates.FORWARD;
 			steeringStateCurrent = SteeringMotor.LEFT;
 			break;
 		case 6: // forward and turn right
-			drivingStateCurrent = DrivingMotor.FORWARD;
+			drivingStateCurrent = DrivingStates.FORWARD;
 			steeringStateCurrent = SteeringMotor.RIGHT;
 			break;
 		case 7: // reverse and turn left
-			drivingStateCurrent = DrivingMotor.REVERSE;
+			drivingStateCurrent = DrivingStates.REVERSE;
 			steeringStateCurrent = SteeringMotor.LEFT;
 			break;
 		case 8: // reverse and turn right
-			drivingStateCurrent = DrivingMotor.REVERSE;
+			drivingStateCurrent = DrivingStates.REVERSE;
 			steeringStateCurrent = SteeringMotor.RIGHT;
 			break;
+		case 9:
+			drivingStateCurrent = DrivingStates.BRAKE;
 		default:
 			break;
 		}
 		execCommands();
 	}
 
-	public synchronized void interrupt(){
-		this.stop = true;
+	public void terminate(){
+		this.terminate = true;
 	}
 
 	private void sleep(long msec){
