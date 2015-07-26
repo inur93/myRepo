@@ -12,23 +12,24 @@ import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.sensor.EV3ColorSensor;
 import lejos.hardware.sensor.EV3IRSensor;
+import lejos.internal.ev3.EV3Battery;
 import lejos.remote.ev3.EV3Request;
 
-public class RemoteController implements Runnable{
+public class TestController implements Runnable{
 	
 	private EV3IRSensor remoteController;
 	private MotorController motorController;
 	
-	public RemoteController(EV3IRSensor remoteController, MotorController motorController){
+	public TestController(EV3IRSensor remoteController, MotorController motorController){
 		this.remoteController = remoteController;
 		this.motorController = motorController;
 	}
-	public RemoteController(){
+	public TestController(){
 		this.remoteController = new  EV3IRSensor(LocalEV3.get().getPort(Const.irSensorPort));
 	}
 	
 	public static void main(String[] args){
-		new RemoteController().run();
+		new TestController().run();
 	}
 
 	@Override

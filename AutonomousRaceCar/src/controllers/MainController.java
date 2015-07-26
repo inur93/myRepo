@@ -8,7 +8,7 @@ import remoteController.RemoteReceiver;
 
 public class MainController implements Runnable{
 
-	private volatile MotorController motorController;
+	private volatile MotorController motorCtrl;
 	private volatile AutoTransmission autoTransmission;
 	private volatile RemoteReceiver remote;
 
@@ -18,11 +18,11 @@ public class MainController implements Runnable{
 
 	public MainController(){
 
-		this.motorController = new MotorController();
-		this.autoTransmission = new AutoTransmission(this.motorController);
+		this.motorCtrl = new MotorController();
+		this.autoTransmission = new AutoTransmission(this.motorCtrl);
 		new Thread(this.autoTransmission).start();
 		
-		this.remote = new RemoteReceiver(this.motorController, this);
+		this.remote = new RemoteReceiver(this.motorCtrl, this.autoTransmission);
 		new Thread(this.remote).start();
 
 	}
@@ -44,14 +44,6 @@ public class MainController implements Runnable{
 		this.autoTransmission.disable();
 		System.exit(0);
 
-	}
-
-	public void setAutoGear(boolean autoGear) {
-		if(autoGear){
-		this.autoTransmission.enable();
-		}else{
-			this.autoTransmission.disable();
-		}
 	}
 
 }

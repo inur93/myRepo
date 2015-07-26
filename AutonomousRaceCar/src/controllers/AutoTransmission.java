@@ -24,6 +24,7 @@ public class AutoTransmission implements Runnable{
 	public synchronized void run() {
 		initTransmission();
 		int speed = 0;
+		System.out.println("transmission started.");
 		while(isRunning){
 			prevGear = currentGear;
 			do{
@@ -38,47 +39,52 @@ public class AutoTransmission implements Runnable{
 			if(!isRunning) break;
 
 			if(speed >= Const.MAX_SPEED && currentGear < 3){
-				this.currentGear++;
-				switch(currentGear){
-				case 1:
-					this.motorController.shiftUp(Const.FIRST_GEAR, false);
-					break;
-				case 2:
-					this.motorController.shiftUp(Const.SECOND_GEAR, false);
-					break;
-				case 3:
-					this.motorController.shiftUp(Const.THIRD_GEAR, false);
-					break;
-				default:
-					System.out.println("gear not recognized: " + currentGear);
-					break;
-				}
+				shiftUp();
 
 			}else if(speed <= Const.MIN_SPEED && currentGear > 1){
-				this.currentGear--;
-				switch(currentGear){
-				case 1:
-					this.motorController.shiftDown(Const.FIRST_GEAR, false);
-					break;
-				case 2:
-					this.motorController.shiftDown(Const.SECOND_GEAR, false);
-					break;
-				case 3:
-					this.motorController.shiftDown(Const.THIRD_GEAR, false);
-					break;
-				default:
-					System.out.println("gear not recognized: " + currentGear);
-					break;
-				}
+				shiftDown();
 			}
 			if(this.currentGear != this.prevGear){
 				System.out.println("current gear: " + currentGear);
 			}
-
 		}
-		System.out.println("auto transmission stopped");
+		System.out.println("auto transmission stopped.");
 	}
 
+	public void shiftDown() {
+		this.currentGear--;
+		switch(currentGear){
+		case 1:
+			this.motorController.shiftDown(Const.FIRST_GEAR);
+			break;
+		case 2:
+			this.motorController.shiftDown(Const.SECOND_GEAR);
+			break;
+		case 3:
+			this.motorController.shiftDown(Const.THIRD_GEAR);
+			break;
+		default:
+			System.out.println("gear not recognized: " + currentGear);
+			break;
+		}
+	}
+	public void shiftUp() {
+		this.currentGear++;
+		switch(currentGear){
+		case 1:
+			this.motorController.shiftUp(Const.FIRST_GEAR);
+			break;
+		case 2:
+			this.motorController.shiftUp(Const.SECOND_GEAR);
+			break;
+		case 3:
+			this.motorController.shiftUp(Const.THIRD_GEAR);
+			break;
+		default:
+			System.out.println("gear not recognized: " + currentGear);
+			break;
+		}		
+	}
 	private void initTransmission() {
 		if(Const.TEST_MODE){
 			this.currentGear = 2;
@@ -122,16 +128,19 @@ public class AutoTransmission implements Runnable{
 	}
 
 	public void enable(){
-		if(this.isRunning = true){
-			return;
-		}
-		System.out.println("enabling...");
+		System.out.println("isrunning: " + isRunning);
+		if(this.isRunning) return;
+	
+//		System.out.println("enabling...");
 		this.isRunning = true;
 		new Thread(this).start();
 	}
 
 	public void disable(){
-		System.out.println("disabling...");
+		System.out.println("isrunning: " + isRunning);
+		if(!this.isRunning) return;
+		
+//		System.out.println("disabling...");
 		this.isRunning = false;
 	}
 }

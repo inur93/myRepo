@@ -4,29 +4,31 @@ import globals.Const;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.port.Port;
 import lejos.hardware.sensor.EV3IRSensor;
-import controllers.MainController;
+import controllers.AutoTransmission;
 import controllers.MotorController;
 
 public class RemoteReceiver implements Runnable{
 
 	private enum DrivingStates{FORWARD, REVERSE, BRAKE, FLOAT}
 	public enum SteeringMotor{LEFT, RIGHT, STRAIGH}
-	public enum GearMotor{SHIFT_UP, SHIFT_DOWN, MANUAL, AUTO}
+	public enum GearState{MANUAL, AUTO}
+	public enum GearMotorState{SHIFT_UP, SHIFT_DOWN}
 
 	private volatile DrivingStates drivingStateCurrent = DrivingStates.BRAKE;
 	private volatile SteeringMotor steeringStateCurrent = SteeringMotor.STRAIGH;
-	private volatile GearMotor gearStateCurrent = GearMotor.AUTO;
+	private volatile GearState gearStateCurrent = GearState.AUTO;
 
-	private volatile SteeringMotor steeringStatePrev = SteeringMotor.STRAIGH;
+//	private volatile SteeringMotor steeringStatePrev = SteeringMotor.STRAIGH;
 
 	private volatile MotorController motorController;
-	private volatile MainController mainController;
+	private volatile AutoTransmission transmission;
 	private EV3IRSensor receiver;
 	private volatile boolean terminate = false;
+	private boolean buttonActive = false;
 
-	public RemoteReceiver(MotorController motorController, MainController mainController) {
+	public RemoteReceiver(MotorController motorController, AutoTransmission transmission) {
 		this.motorController = motorController;
-		this.mainController = mainController;
+		this.transmission = transmission;
 		if(!Const.TEST_MODE){
 		Port port = LocalEV3.get().getPort(Const.irSensorPort);
 		this.receiver = new EV3IRSensor(port);
@@ -73,10 +75,14 @@ public class RemoteReceiver implements Runnable{
 					break;
 				}
 			}
-			if(channel == 0){
+			if(channel == Const.DRIVING_CHANNEL || channel == -1){
 				setStandardStates(command);
-			}else if(channel == 1 || channel == -1){
+			}
+			if(channel == Const.GEAR_CHANNEL || channel == -1){
 				setManualGearState(command);
+			}
+			if(channel == 3 && command == 9){
+				System.exit(0);
 			}
 			sleep(50);
 			resetStates();
@@ -90,50 +96,69 @@ public class RemoteReceiver implements Runnable{
 	}
 
 	private void setManualGearState(int command) {
+		GearMotorState gearCommand = null;
+		
 		switch(command){
 		case 1:
-			gearStateCurrent = GearMotor.SHIFT_UP;
+			gearCommand = GearMotorState.SHIFT_UP;
 			break;
 		case 2:
-			gearStateCurrent = GearMotor.SHIFT_DOWN;
+			gearCommand = GearMotorState.SHIFT_DOWN;
 			break;
 		case 3:
-			gearStateCurrent = GearMotor.SHIFT_UP;
+			gearCommand = GearMotorState.SHIFT_UP;
 			break;
 		case 4:
-			gearStateCurrent = GearMotor.SHIFT_DOWN;
+			gearCommand = GearMotorState.SHIFT_DOWN;
 			break;
 		case 9:
-			gearStateCurrent = gearStateCurrent.equals(GearMotor.AUTO) ? GearMotor.MANUAL : GearMotor.AUTO;
+			if(buttonActive) break;
+			
+			
+			gearStateCurrent = gearStateCurrent.equals(GearState.AUTO) ? GearState.MANUAL : GearState.AUTO;
+			if(gearStateCurrent.equals(GearState.AUTO)){
+				System.out.println("auto enabled");
+				this.transmission.enable();
+			}else if(gearStateCurrent.equals(GearState.MANUAL)){
+				System.out.println("auto disabled");
+				this.transmission.disable();
+			}
+			buttonActive = true;
+			break;
 		default:
+			buttonActive = false;
 			break;
 		}
+		
+//		System.out.println("toggle auto gear: " + buttonActive);
 
-		execCommands();
+		if(gearCommand != null) execGearCommand(gearCommand);
 
 	}
 
 	private void execCommands() {
 		execDrivingCommand();
 		execSteeringCommand();
-		execGearCommand();
 
-		steeringStatePrev = steeringStateCurrent;
+//		steeringStatePrev = steeringStateCurrent;
 	}
 
-	private void execGearCommand() {
-		if(gearStateCurrent.equals(GearMotor.AUTO)){
-			this.mainController.setAutoGear(true);
-		}else if(gearStateCurrent.equals(GearMotor.MANUAL)){
-			this.mainController.setAutoGear(false);
+	private void execGearCommand(GearMotorState command) {
+		switch(command){
+		case SHIFT_DOWN:
+			this.transmission.shiftDown();
+			break;
+		case SHIFT_UP:
+			this.transmission.shiftUp();
+			break;
 		}
 	}
 
 	private void execSteeringCommand() {
-		if(steeringStateCurrent.equals(steeringStatePrev)) return;
-		else{
+//		if(steeringStateCurrent.equals(steeringStatePrev)) return;
+//		else{
 			this.motorController.setSteeringWheel(steeringStateCurrent);
-		}
+//		}
 	}
 
 	private void execDrivingCommand(){
@@ -143,8 +168,6 @@ public class RemoteReceiver implements Runnable{
 			motorController.stop();
 		}
 		else if(drivingStateCurrent.equals(DrivingStates.FORWARD)){
-//			System.out.println("forward: " + motorController.isGoingForward());
-//			System.out.println("backward: " + motorController.isGoingBackward());
 			if(motorController.isGoingForward()){
 				motorController.increaseSpeed();
 			}else{
